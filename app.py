@@ -8,27 +8,63 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 
 from fsm import TocMachine
-from utils import send_text_message
+from utils import send_text_message, send_image_url
 
 load_dotenv()
 
 
 machine = TocMachine(
-    states=["user", "state1", "state2"],
+    states=["user", "helper", "body_graph", "fsm_graph", "where_sore", "back_sore", "shoulder_sore"],
     transitions=[
         {
             "trigger": "advance",
             "source": "user",
-            "dest": "state1",
-            "conditions": "is_going_to_state1",
+            "dest": "helper",
+            "conditions": "is_going_to_helper",
         },
         {
             "trigger": "advance",
             "source": "user",
-            "dest": "state2",
-            "conditions": "is_going_to_state2",
+            "dest": "body_graph",
+            "conditions": "is_going_to_body_graph",
         },
-        {"trigger": "go_back", "source": ["state1", "state2"], "dest": "user"},
+        {
+            "trigger": "advance",
+            "source": "user",
+            "dest": "fsm_graph",
+            "conditions": "is_going_to_fsm_graph",
+        },
+        {
+            "trigger": "advance",
+            "source": "user",
+            "dest": "where_sore",
+            "conditions": "is_going_to_where_sore",
+        },
+        {
+            "trigger": "advance",
+            "source": "user",
+            "dest": "back_sore",
+            "conditions": "is_going_to_back_sore",
+        },
+        {
+            "trigger": "advance",
+            "source": "user",
+            "dest": "shoulder_sore",
+            "conditions": "is_going_to_shoulder_sore",
+        },
+        {
+            "trigger": "advance",
+            "source": "where_sore",
+            "dest": "back_sore",
+            "conditions": "is_going_to_back_sore",
+        },
+        {
+            "trigger": "advance",
+            "source": "where_sore",
+            "dest": "shoulder_sore",
+            "conditions": "is_going_to_shoulder_sore",
+        },
+        {"trigger": "go_back", "source": ["helper", "body_graph", "fsm_graph", "where_sore", "back_sore", "shoulder_sore"], "dest": "user"},
     ],
     initial="user",
     auto_transitions=False,
@@ -39,8 +75,8 @@ app = Flask(__name__, static_url_path="")
 
 
 # get channel_secret and channel_access_token from your environment variable
-channel_secret = os.getenv("LINE_CHANNEL_SECRET", None)
-channel_access_token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", None)
+channel_secret = os.getenv("LINE_CHANNEL_SECRET", "cf197afa8f13720c856345552a8cb63e")
+channel_access_token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "4Vmuh1fBve0HDaj1/1BsxCdedVtwV5TMgY6KVQUt4g8V75GwftAt8NzC3PHT+xULn5BADYODpMj7XD5dP9nd603dfGtir8egUAJCJnG+jBxMx1Jiw7sClpiif/wZT8b3pdXnv+JbWKGqOsDq2vFM3AdB04t89/1O/w1cDnyilFU=")
 if channel_secret is None:
     print("Specify LINE_CHANNEL_SECRET as environment variable.")
     sys.exit(1)
@@ -53,7 +89,7 @@ parser = WebhookParser(channel_secret)
 
 
 @app.route("/callback", methods=["POST"])
-def callback():
+def webhook_handler():
     signature = request.headers["X-Line-Signature"]
     # get request body as text
     body = request.get_data(as_text=True)
@@ -71,40 +107,38 @@ def callback():
             continue
         if not isinstance(event.message, TextMessage):
             continue
-
-        line_bot_api.reply_message(
-            event.reply_token, TextSendMessage(text=event.message.text)
-        )
-
-    return "OK"
-
-
-@app.route("/webhook", methods=["POST"])
-def webhook_handler():
-    signature = request.headers["X-Line-Signature"]
-    # get request body as text
-    body = request.get_data(as_text=True)
-    app.logger.info(f"Request body: {body}")
-
-    # parse webhook body
-    try:
-        events = parser.parse(body, signature)
-    except InvalidSignatureError:
-        abort(400)
-
-    # if event is MessageEvent and message is TextMessage, then echo text
-    for event in events:
-        if not isinstance(event, MessageEvent):
-            continue
-        if not isinstance(event.message, TextMessage):
-            continue
         if not isinstance(event.message.text, str):
             continue
         print(f"\nFSM STATE: {machine.state}")
         print(f"REQUEST BODY: \n{body}")
+
+
         response = machine.advance(event)
+
+        # exception
         if response == False:
-            send_text_message(event.reply_token, "Not Entering any State")
+            if machine.state == 'user':
+                # show the message which user may want to know
+                user_msg = '歡迎使用肌肉痠痛小幫手~\n' \
+                           '若輸入關節字則會啟動特殊功能\n'\
+                           '輸入 "help" 會說明所有關鍵字\n'
+                send_text_message(event.reply_token, user_msg)
+        
+
+        elif machine.state == 'where_sore':
+            # show the message which user may want to know
+            user_msg = '請輸入:\n' \
+                        '"肩頸痠痛" 或 "背部痠痛"\n'
+            send_text_message(event.reply_token, user_msg)
+
+        
+        elif machine.state == 'shoulder_sore':
+            # 教學影片或文章或圖片...
+            send_text_message(event.reply_token, 'in shoulder_sore state')
+
+        elif machine.state == 'back_sore':
+            # 教學影片或文章或圖片...
+            send_text_message(event.reply_token, 'in back_sore state')
 
     return "OK"
 
