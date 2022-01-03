@@ -108,7 +108,7 @@ class TocMachine(GraphMachine):
         self.pre_state = self.cur_state
         self.cur_state = 'fsm_graph'
         # if enter fsm
-        send_image_url(event.reply_token, 'https://muscle-sore-line-bot.herokuapp.com/show-fsm')
+        send_image_url(event.reply_token, 'https://github.com/JimChe/TOC-bot/blob/master/fsm.png')
     
     def on_enter_where_sore(self, event):
         self.pre_state = self.cur_state
