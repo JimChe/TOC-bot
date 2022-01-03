@@ -26,6 +26,7 @@ machine = TocMachine(
         "appliance",
         "target_muscle",
         "tutorial",
+        "recommend",
     ],
     transitions=[
         {
@@ -197,6 +198,101 @@ machine = TocMachine(
             "conditions": "is_going_to_user",
         },
         {
+            "trigger": "advance",
+            "source": "how_to_solve",
+            "dest": "recommend",
+            "conditions": "is_going_to_recommend",
+        },
+        {
+            "trigger": "advance",
+            "source": "recommend",
+            "dest": "how_to_solve",
+            "conditions": "is_going_to_how_to_solve",
+        },
+        {
+            "trigger": "advance",
+            "source": "recommend",
+            "dest": "user",
+            "conditions": "is_going_to_user",
+        },
+        {
+            "trigger": "advance",
+            "source": [
+                "helper",
+                "fsm_graph",
+                "where_sore",
+                "back_sore",
+                "shoulder_sore",
+                "how_to_solve",
+                "appliance",
+                "target_muscle",
+                "tutorial",
+                "recommend",
+            ],
+            "dest": "body_graph",
+            "conditions": "is_going_to_body_graph",
+        },
+        {
+            "trigger": "advance",
+            "source": "body_graph",
+            "dest": "helper",
+            "conditions": "is_going_to_helper",
+        },
+        {
+            "trigger": "advance",
+            "source": "body_graph",
+            "dest": "fsm_graph",
+            "conditions": "is_going_to_fsm_graph",
+        },
+        {
+            "trigger": "advance",
+            "source": "body_graph",
+            "dest": "where_sore",
+            "conditions": "is_going_to_where_sore",
+        },
+        {
+            "trigger": "advance",
+            "source": "body_graph",
+            "dest": "back_sore",
+            "conditions": "is_going_to_back_sore",
+        },
+        {
+            "trigger": "advance",
+            "source": "body_graph",
+            "dest": "shoulder_sore",
+            "conditions": "is_going_to_shoulder_sore",
+        },
+        {
+            "trigger": "advance",
+            "source": "body_graph",
+            "dest": "how_to_solve",
+            "conditions": "is_going_to_how_to_solve",
+        },
+        {
+            "trigger": "advance",
+            "source": "body_graph",
+            "dest": "appliance",
+            "conditions": "is_going_to_appliance",
+        },
+        {
+            "trigger": "advance",
+            "source": "body_graph",
+            "dest": "target_muscle",
+            "conditions": "is_going_to_target_muscle",
+        },
+        {
+            "trigger": "advance",
+            "source": "body_graph",
+            "dest": "tutorial",
+            "conditions": "is_going_to_tutorial",
+        },
+        {
+            "trigger": "advance",
+            "source": "body_graph",
+            "dest": "recommend",
+            "conditions": "is_going_to_recommend",
+        },
+        {
             "trigger": "go_back",
             "source": [
                 "helper",
@@ -209,6 +305,7 @@ machine = TocMachine(
                 "appliance",
                 "target_muscle",
                 "tutorial",
+                "recommend",
             ],
             "dest": "user"
         },
