@@ -14,7 +14,19 @@ load_dotenv()
 
 
 machine = TocMachine(
-    states=["user", "helper", "body_graph", "fsm_graph", "where_sore", "back_sore", "shoulder_sore"],
+    states=[
+        "user",
+        "helper",
+        "body_graph",
+        "fsm_graph",
+        "where_sore",
+        "back_sore",
+        "shoulder_sore",
+        "how_to_solve", 
+        "appliance",
+        "target_muscle",
+        "tutorial",
+    ],
     transitions=[
         {
             "trigger": "advance",
@@ -24,9 +36,21 @@ machine = TocMachine(
         },
         {
             "trigger": "advance",
+            "source": "helper",
+            "dest": "user",
+            "conditions": "is_going_to_user",
+        },
+        {
+            "trigger": "advance",
             "source": "user",
             "dest": "body_graph",
             "conditions": "is_going_to_body_graph",
+        },
+        {
+            "trigger": "advance",
+            "source": "body_graph",
+            "dest": "user",
+            "conditions": "is_going_to_user",
         },
         {
             "trigger": "advance",
@@ -36,15 +60,33 @@ machine = TocMachine(
         },
         {
             "trigger": "advance",
+            "source": "fsm_graph",
+            "dest": "user",
+            "conditions": "is_going_to_user",
+        },
+        {
+            "trigger": "advance",
             "source": "user",
             "dest": "where_sore",
             "conditions": "is_going_to_where_sore",
         },
         {
             "trigger": "advance",
+            "source": "where_sore",
+            "dest": "user",
+            "conditions": "is_going_to_user",
+        },
+        {
+            "trigger": "advance",
             "source": "user",
             "dest": "back_sore",
             "conditions": "is_going_to_back_sore",
+        },
+        {
+            "trigger": "advance",
+            "source": "back_sore",
+            "dest": "user",
+            "conditions": "is_going_to_user",
         },
         {
             "trigger": "advance",
@@ -54,9 +96,21 @@ machine = TocMachine(
         },
         {
             "trigger": "advance",
+            "source": "shoulder_sore",
+            "dest": "user",
+            "conditions": "is_going_to_user",
+        },
+        {
+            "trigger": "advance",
             "source": "where_sore",
             "dest": "back_sore",
             "conditions": "is_going_to_back_sore",
+        },
+        {
+            "trigger": "advance",
+            "source": "back_sore",
+            "dest": "where_sore",
+            "conditions": "is_going_to_where_sore",
         },
         {
             "trigger": "advance",
@@ -64,7 +118,100 @@ machine = TocMachine(
             "dest": "shoulder_sore",
             "conditions": "is_going_to_shoulder_sore",
         },
-        {"trigger": "go_back", "source": ["helper", "body_graph", "fsm_graph", "where_sore", "back_sore", "shoulder_sore"], "dest": "user"},
+        {
+            "trigger": "advance",
+            "source": "shoulder_sore",
+            "dest": "where_sore",
+            "conditions": "is_going_to_where_sore",
+        },
+        {
+            "trigger": "advance",
+            "source": "back_sore",
+            "dest": "how_to_solve",
+            "conditions": "is_going_to_how_to_solve",
+        },
+        {
+            "trigger": "advance",
+            "source": "shoulder_sore",
+            "dest": "how_to_solve",
+            "conditions": "is_going_to_how_to_solve",
+        },
+        {
+            "trigger": "advance",
+            "source": "how_to_solve",
+            "dest": "user",
+            "conditions": "is_going_to_user",
+        },
+        {
+            "trigger": "advance",
+            "source": "how_to_solve",
+            "dest": "appliance",
+            "conditions": "is_going_to_appliance",
+        },
+        {
+            "trigger": "advance",
+            "source": "appliance",
+            "dest": "how_to_solve",
+            "conditions": "is_going_to_how_to_solve",
+        },
+        {
+            "trigger": "advance",
+            "source": "appliance",
+            "dest": "user",
+            "conditions": "is_going_to_user",
+        },
+        {
+            "trigger": "advance",
+            "source": "how_to_solve",
+            "dest": "target_muscle",
+            "conditions": "is_going_to_target_muscle",
+        },
+        {
+            "trigger": "advance",
+            "source": "target_muscle",
+            "dest": "how_to_solve",
+            "conditions": "is_going_to_how_to_solve",
+        },
+        {
+            "trigger": "advance",
+            "source": "target_muscle",
+            "dest": "user",
+            "conditions": "is_going_to_user",
+        },
+        {
+            "trigger": "advance",
+            "source": "how_to_solve",
+            "dest": "tutorial",
+            "conditions": "is_going_to_tutorial",
+        },
+        {
+            "trigger": "advance",
+            "source": "tutorial",
+            "dest": "how_to_solve",
+            "conditions": "is_going_to_how_to_solve",
+        },
+        {
+            "trigger": "advance",
+            "source": "tutorial",
+            "dest": "user",
+            "conditions": "is_going_to_user",
+        },
+        {
+            "trigger": "go_back",
+            "source": [
+                "helper",
+                "body_graph",
+                "fsm_graph",
+                "where_sore",
+                "back_sore",
+                "shoulder_sore",
+                "how_to_solve",
+                "appliance",
+                "target_muscle",
+                "tutorial",
+            ],
+            "dest": "user"
+        },
     ],
     initial="user",
     auto_transitions=False,
@@ -112,7 +259,7 @@ def webhook_handler():
         print(f"\nFSM STATE: {machine.state}")
         print(f"REQUEST BODY: \n{body}")
 
-
+        # get response from machine
         response = machine.advance(event)
 
         # exception
@@ -123,22 +270,23 @@ def webhook_handler():
                            '若輸入關節字則會啟動特殊功能\n'\
                            '輸入 "help" 會說明所有關鍵字\n'
                 send_text_message(event.reply_token, user_msg)
-        
+            
+            if machine.state == 'shoulder_sore' or machine.state == 'back_sore':
+                # show the message which user may want to know
+                user_msg = '請輸入 "如何放鬆"\n' \
+                           '來了解放鬆的方式\n'
+                send_text_message(event.reply_token, user_msg)
 
-        elif machine.state == 'where_sore':
-            # show the message which user may want to know
-            user_msg = '請輸入:\n' \
-                        '"肩頸痠痛" 或 "背部痠痛"\n'
-            send_text_message(event.reply_token, user_msg)
-
-        
-        elif machine.state == 'shoulder_sore':
-            # 教學影片或文章或圖片...
-            send_text_message(event.reply_token, 'in shoulder_sore state')
-
-        elif machine.state == 'back_sore':
-            # 教學影片或文章或圖片...
-            send_text_message(event.reply_token, 'in back_sore state')
+            else:
+                # show the message which user may want to know
+                user_msg = '如果想回到上一個狀態\n' \
+                           '請輸入 "back"\n\n' \
+                           '如果輸入 "back"\n' \
+                           '依然跳出此訊息\n' \
+                           '請勇敢輸入 "restart"\n\n' \
+                           '如果想回到最初的狀態\n' \
+                           '請輸入 "restart"\n' 
+                send_text_message(event.reply_token, user_msg)
 
     return "OK"
 
