@@ -1,9 +1,11 @@
 from transitions.extensions import GraphMachine
 
-from linebot.models import MessageTemplateAction
+from linebot.models import MessageTemplateAction, ImageCarouselColumn, URITemplateAction
 
-from utils import send_text_message, send_image_url, send_button_message
+from utils import send_text_message, send_image_url, send_button_message, send_carousel_message
 
+#from bs4 import BeautifulSoup
+import requests
 
 class TocMachine(GraphMachine):
     def __init__(self, **machine_configs):
@@ -14,17 +16,15 @@ class TocMachine(GraphMachine):
 
     def is_going_to_user(self, event):
         text = event.message.text
-        whether_go = text.lower() == 'restart' \
-        or (self.cur_state == 'helper'     and text.lower() == 'back') \
-        or (self.cur_state == 'body_graph' and text.lower() == 'back') \
-        or (self.cur_state == 'fsm_graph'  and text.lower() == 'back') \
-        or (self.cur_state == 'where_sore' and text.lower() == 'back')
-
-        return whether_go
+        return text.lower() == 'restart' \
+            or (self.cur_state == 'helper'     and text.lower() == 'back') \
+            or (self.cur_state == 'fsm_graph'  and text.lower() == 'back') \
+            or (self.cur_state == 'body_graph' and text.lower() == 'back')
 
     def is_going_to_helper(self, event):
         text = event.message.text
-        return text.lower() == 'help'
+        return text.lower() == 'help' \
+            or (self.cur_state == 'body_graph' and text.lower() == 'back')
     
     def is_going_to_body_graph(self, event):
         text = event.message.text
@@ -32,44 +32,50 @@ class TocMachine(GraphMachine):
 
     def is_going_to_fsm_graph(self, event):
         text = event.message.text
-        return text.lower() == 'fsm'
+        return text.lower() == 'fsm' \
+            or (self.cur_state == 'body_graph' and text.lower() == 'back')
 
     def is_going_to_where_sore(self, event):
         text = event.message.text
-        whether_go = text.lower() == '痠痛' \
-        or (self.cur_state == 'back_sore'     and text.lower() == 'back') \
-        or (self.cur_state == 'shoulder_sore' and text.lower() == 'back')
-
-        return whether_go
+        return text.lower() == '痠痛' \
+            or (self.cur_state == 'body_graph' and text.lower() == 'back') \
+            or (self.cur_state == 'back_sore' and text.lower() == 'back') \
+            or (self.cur_state == 'shoulder_sore' and text.lower() == 'back')
 
     def is_going_to_back_sore(self, event):
         text = event.message.text
-        return text.lower() == '背部痠痛'
+        return text.lower() == '背部痠痛' \
+            or (self.cur_state == 'body_graph' and text.lower() == 'back')
 
     def is_going_to_shoulder_sore(self, event):
         text = event.message.text
-        return text.lower() == '肩頸痠痛'
+        return text.lower() == '肩頸痠痛' \
+            or (self.cur_state == 'body_graph' and text.lower() == 'back')
 
     def is_going_to_how_to_solve(self, event):
         text = event.message.text
-        whether_go = text.lower() == '如何放鬆' \
-        or (self.cur_state == 'appliance'     and text.lower() == 'back') \
-        or (self.cur_state == 'target_muscle' and text.lower() == 'back') \
-        or (self.cur_state == 'tutorial'      and text.lower() == 'back')
-
-        return whether_go
+        return text.lower() == '如何放鬆' \
+            or (self.cur_state == 'body_graph' and text.lower() == 'back')
     
     def is_going_to_appliance(self, event):
         text = event.message.text
-        return text.lower() == '舒緩用具'
+        return text.lower() == '放鬆用具' \
+            or (self.cur_state == 'body_graph' and text.lower() == 'back')
 
     def is_going_to_target_muscle(self, event):
         text = event.message.text
-        return text.lower() == '舒緩位置'
+        return text.lower() == '放鬆位置'\
+            or (self.cur_state == 'body_graph' and text.lower() == 'back')
 
     def is_going_to_tutorial(self, event):
         text = event.message.text
-        return text.lower() == '教學'
+        return text.lower() == '教學'\
+            or (self.cur_state == 'body_graph' and text.lower() == 'back')
+
+    def is_going_to_recommend(self, event):
+        text = event.message.text
+        return text.lower() == '還是不懂'\
+            or (self.cur_state == 'body_graph' and text.lower() == 'back')
 
 
     def on_enter_user(self, event):
@@ -87,7 +93,8 @@ class TocMachine(GraphMachine):
         # enter help
         msg = '"痠痛": 小幫手會詢問酸痛的部位\n\n' \
                     '"肩頸痠痛 或 背部痠痛": 小幫手會跳出相關舒緩方式\n\n' \
-                    '"人體肌肉圖": 跳出人體肌肉分布圖片\n'
+                    '"人體肌肉圖": 跳出人體肌肉分布圖片\n' \
+                    '*"人體肌肉圖" 在任何狀態都可以輸入\n'
         send_text_message(event.reply_token, msg)
 
     def on_enter_body_graph(self, event):
@@ -114,6 +121,7 @@ class TocMachine(GraphMachine):
     def on_enter_back_sore(self, event):
         self.pre_state = self.cur_state
         self.cur_state = 'back_sore'
+        self.sore = 0
         msg = '建議放鬆部位:\n' \
                     '豎脊肌\n' \
                     '背闊肌\n' \
@@ -127,6 +135,7 @@ class TocMachine(GraphMachine):
     def on_enter_shoulder_sore(self, event):
         self.pre_state = self.cur_state
         self.cur_state = 'shoulder_sore'
+        self.sore = 1
         msg = '建議放鬆部位:\n' \
                     '上斜方肌\n' \
                     '提肩胛肌\n' \
@@ -138,25 +147,23 @@ class TocMachine(GraphMachine):
         self.pre_state = self.cur_state
         title = ''
         url = ''
-        if self.pre_state == "back_sore":
-            self.sore = 0
+        if self.sore == 0:
             title = '舒緩背部痠痛相關事項說明'
             url = 'https://www.dongrens.com/wp-content/uploads/2020/12/1029671.jpg'
         else:
-            self.sore = 1
             title = '舒緩肩頸痠痛相關事項說明'
             url = 'https://fastzonemassage.com/wp-content/uploads/2019/05/1.jpg'
         
         self.cur_state = 'how_to_solve'
-        text = '請選擇『舒緩用具』或『舒緩位置』或『教學』'
+        text = '請選擇『放鬆用具』或『放鬆位置』或『教學』'
         btn = [
             MessageTemplateAction(
-                label='舒緩用具',
-                text='舒緩用具'
+                label='放鬆用具',
+                text='放鬆用具'
             ),
             MessageTemplateAction(
-                label='舒緩位置',
-                text='舒緩位置'
+                label='放鬆位置',
+                text='放鬆位置'
             ),
             MessageTemplateAction(
                 label='教學',
@@ -183,6 +190,8 @@ class TocMachine(GraphMachine):
         send_image_url(event.reply_token, img_url)
 
     def on_enter_tutorial(self, event):
+        self.pre_state = self.cur_state
+        self.cur_state = 'tutorial'
         msg = '放鬆教學:\n' \
                 '1. 將按摩球對準目標肌肉的位置\n' \
                 '2. 靠牆或躺下\n' \
@@ -191,4 +200,18 @@ class TocMachine(GraphMachine):
                 '5. 尋找到痠痛的點時停下\n' \
                 '6. 在酸痛點來回移動或是靜止\n' \
                 '7. 重複4.~6.直到按壓完整塊肌肉\n'
+        send_text_message(event.reply_token, msg)
+
+    def on_enter_recommend(self, event):
+        self.pre_state = self.cur_state
+        self.cur_state = 'recommend'
+        msg = '由於技術問題\n' \
+                '更加詳細的內容\n' \
+                '小幫手無法提供了啦\n' \
+                '推薦觀看youtube上\n' \
+                '物理治療師的相關影片\n' \
+                '"sun guts" 是其中一位\n' \
+                '影片內容清楚易懂的yt\n' \
+                '想了解更多\n' \
+                'google也有非常多參考文章哦\n'
         send_text_message(event.reply_token, msg)
